@@ -195,6 +195,9 @@ html[dir="ltr"] .brand-name, html[dir="ltr"] .hero h1 { font-family: 'Segoe UI',
 .toolbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .res-count { font-weight: 800; font-size: 15px; color: var(--primary); }
 .chk { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text2); cursor: pointer; }
+.libya-hint { color: var(--text2); font-size: 11.5px; display: none; }
+.libya-hint.on { display: inline; }
+.libya-badge { font-size: 10.5px; background: rgba(5,150,105,.12); color: var(--ok); border: 1px solid rgba(5,150,105,.3); border-radius: 20px; padding: 1px 9px; font-weight: 800; }
 .bilingual-note { margin-top: 6px; font-size: 12px; color: var(--primary); }
 
 /* Filter chips row */
@@ -518,6 +521,7 @@ html[dir="ltr"] .card-abstract { border-left: none; border-right: 3px solid var(
       </div>
       <div class="search-actions">
         <label class="chk"><input type="checkbox" id="chkLibyaAffil"> 🇱🇾 <span data-i18n="libyaAffilFilter">الجامعات الليبية فقط</span></label>
+        <small class="libya-hint" id="libyaHint" data-i18n="libyaAffilHint">(يقتصر على OpenAlex لضمان دقة تصنيف الانتساب)</small>
         <button type="button" class="mini" id="btnCopyLink">🔗 <span data-i18n="copyLink">نسخ رابط البحث</span></button>
       </div>
     </div>
@@ -861,6 +865,7 @@ const I18N = {
     retractedBadge: 'بحث مسحوب', retractedAlert: 'تنبيه: هذا البحث تم سحبه (Retracted) من الناشر — تجنّب الاستشهاد به.',
     preprintBadge: 'نسخة أولية (لم تُحكّم بعد)',
     libyaAffilFilter: 'الجامعات الليبية فقط',
+    libyaAffilHint: '(يقتصر على OpenAlex لضمان دقة تصنيف الانتساب)', libyaBadge: 'انتساب ليبي مؤكَّد',
     analyticsBtn: 'تحليلات', anYears: 'توزيع النتائج حسب السنة', anAuthors: 'أكثر الباحثين تكراراً', anVenues: 'أكثر المجلات/الدوريات تكراراً',
     myLibrary: 'مكتبتي', myLibraryTitle: 'مكتبتي — المراجع المحفوظة', collection: 'المجموعة الحالية', newCollectionPh: 'اسم مجموعة جديدة…',
     createCollection: '+ إنشاء', exportLibrary: '⬇ تصدير المكتبة (ZIP)', libraryEmpty: 'لا توجد مراجع محفوظة بعد. اضغط ⭐ على أي نتيجة لحفظها هنا.',
@@ -928,6 +933,7 @@ const I18N = {
     retractedBadge: 'Retracted', retractedAlert: 'Warning: this paper has been retracted by the publisher — avoid citing it.',
     preprintBadge: 'Preprint (not yet peer-reviewed)',
     libyaAffilFilter: 'Libyan universities only',
+    libyaAffilHint: '(OpenAlex only, to guarantee affiliation accuracy)', libyaBadge: 'Libyan affiliation confirmed',
     analyticsBtn: 'Analytics', anYears: 'Results by year', anAuthors: 'Most frequent authors', anVenues: 'Most frequent journals/venues',
     myLibrary: 'My Library', myLibraryTitle: 'My Library — Saved References', collection: 'Current collection', newCollectionPh: 'New collection name…',
     createCollection: '+ Create', exportLibrary: '⬇ Export library (ZIP)', libraryEmpty: 'No saved references yet. Click ⭐ on any result to save it here.',
@@ -1622,6 +1628,7 @@ function applyFilters(list) {
   if (f.peerOnly) arr = arr.filter(isPeerReviewed);
   if (f.savedOnly) arr = arr.filter((r) => state.saved.has(savedKey(r)));
   if (f.concept) arr = arr.filter((r) => (r.keywords || []).some((k) => String(k).toLowerCase() === f.concept.toLowerCase()) || String(r.title || '').toLowerCase().includes(f.concept.toLowerCase()));
+  if (f.libyaAffil) arr = arr.filter((r) => r.source === 'openalex');
   return arr;
 }
 function filteredResults() { return applyFilters(state.results.slice()); }
@@ -1653,6 +1660,7 @@ function renderCard(r, i) {
   const abs = r.abstract ? esc(r.abstract) : '';
   const oa = r.openAccess ? `<span class="oa-badge">🔓 ${t('oaBadge')}</span>` : '';
   const peer = isPeerReviewed(r) ? `<span class="peer-badge">🏅 ${t('peerBadge')}</span>` : '';
+  const libya = (state.filters.libyaAffil && r.source === 'openalex') ? `<span class="libya-badge">🇱🇾 ${t('libyaBadge')}</span>` : '';
   const retract = r.isRetracted ? `<span class="retract-badge">⚠️ ${t('retractedBadge')}</span>` : '';
   const preprint = (!r.isRetracted && r.isPreprint) ? `<span class="preprint-badge">📝 ${t('preprintBadge')}</span>` : '';
   const pdf = r.pdfUrl ? `<a class="btn-src" href="${esc(r.pdfUrl)}" target="_blank" rel="noopener">📄 ${t('copyPdf')}</a>` : '';
@@ -1678,7 +1686,7 @@ function renderCard(r, i) {
       <div class="card-main">
         <div class="card-src-tag-row">
           <span class="src-tag ${srcTagClass(r.source)}">${SRC_META[r.source] ? SRC_META[r.source].name : r.source}</span>
-          ${oa}${peer}${retract}${preprint}
+          ${oa}${peer}${libya}${retract}${preprint}
         </div>
         <div class="card-title" data-open="${r.id}" ${url ? `role="link" title="${t('openSource')}"` : ''}>${esc(r.title || '(—)')}</div>
         ${r.isRetracted ? `<div class="retract-alert">⚠️ ${t('retractedAlert')}</div>` : ''}
@@ -2081,7 +2089,11 @@ function bindUi() {
     panel.classList.toggle('hidden');
     if (!panel.classList.contains('hidden')) renderAnalytics();
   });
-  $('chkLibyaAffil').addEventListener('change', (e) => { state.filters.libyaAffil = e.target.checked; });
+  $('chkLibyaAffil').addEventListener('change', (e) => {
+    state.filters.libyaAffil = e.target.checked;
+    $('libyaHint').classList.toggle('on', e.target.checked);
+    if (state.results.length) { if (state.q) doSearch(); else renderResults(); }
+  });
   document.querySelectorAll('#filtersBar [data-filter]').forEach((btn) => {
     btn.addEventListener('click', () => { state.filters[btn.dataset.filter] = !state.filters[btn.dataset.filter]; renderResults(); });
   });
